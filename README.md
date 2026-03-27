@@ -88,9 +88,13 @@
 ## 截图展示
 
 以下是应用的界面截图：
-![主界面示意图](screenshots/主界面.jpg)
-![设置界面示意图](screenshots/设置界面.jpg)
-![设置界面示意图2](screenshots/设置界面2.jpg)
+
+<p>
+  <img src="screenshots/主界面.jpg" alt="主界面示意图" width="260">
+  <img src="screenshots/设置界面.jpg" alt="设置界面示意图" width="260">
+  <img src="screenshots/设置界面2.jpg" alt="设置界面示意图2" width="260">
+</p>
+
 
 ---
 
