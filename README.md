@@ -88,9 +88,9 @@
 ## 截图展示
 
 以下是应用的界面截图：
-![主界面示意图](\screenshots\主界面.jpg)
-![设置示意图](\screenshots\设置界面.jpg)
-![设置示意图2](\screenshots\设置界面2.jpg)
+![主界面示意图](screenshots/主界面.jpg)
+![设置界面示意图](screenshots/设置界面.jpg)
+![设置界面示意图2](screenshots/设置界面2.jpg)
 
 ---
 
