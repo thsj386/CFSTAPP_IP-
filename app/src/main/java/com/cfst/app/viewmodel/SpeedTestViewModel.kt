@@ -173,8 +173,11 @@ class SpeedTestViewModel(private val application: Application) : ViewModel() {
     private val _testCount = MutableStateFlow(100)
     val testCount: StateFlow<Int> = _testCount.asStateFlow()
     
-    private val _pingCount = MutableStateFlow(1)
+    private val _pingCount = MutableStateFlow(3)
     val pingCount: StateFlow<Int> = _pingCount.asStateFlow()
+
+    private val _maxConcurrentPings = MutableStateFlow(8)
+    val maxConcurrentPings: StateFlow<Int> = _maxConcurrentPings.asStateFlow()
     
     private val _enableDownloadTest = MutableStateFlow(true)
     val enableDownloadTest: StateFlow<Boolean> = _enableDownloadTest.asStateFlow()
@@ -303,6 +306,10 @@ class SpeedTestViewModel(private val application: Application) : ViewModel() {
      */
     fun updatePingCount(count: Int) {
         _pingCount.value = count
+    }
+
+    fun updateMaxConcurrentPings(count: Int) {
+        _maxConcurrentPings.value = count
     }
     
     /**
@@ -823,7 +830,8 @@ class SpeedTestViewModel(private val application: Application) : ViewModel() {
                 latencyLimit = _latencyLimit.value,
                 downloadTestCount = _downloadTestCount.value,
                 pingFirst = true,
-                maxConcurrentDownloads = 5
+                maxConcurrentDownloads = 5,
+                maxConcurrentPings = _maxConcurrentPings.value
             )
 
             val currentResults = mutableListOf<SpeedTestResult>()

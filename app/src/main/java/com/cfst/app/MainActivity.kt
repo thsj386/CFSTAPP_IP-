@@ -415,6 +415,7 @@ fun SettingsDialog(
 ) {
     val testCount by viewModel.testCount.collectAsState()
     val pingCount by viewModel.pingCount.collectAsState()
+    val maxConcurrentPings by viewModel.maxConcurrentPings.collectAsState()
     val enableDownloadTest by viewModel.enableDownloadTest.collectAsState()
     val speedLimit by viewModel.speedLimit.collectAsState()
     val latencyLimit by viewModel.latencyLimit.collectAsState()
@@ -434,6 +435,7 @@ fun SettingsDialog(
 
     var testCountText by remember { mutableStateOf(testCount.toString()) }
     var pingCountText by remember { mutableStateOf(pingCount.toString()) }
+    var maxConcurrentPingsText by remember { mutableStateOf(maxConcurrentPings.toString()) }
     var speedLimitText by remember { mutableStateOf(speedLimit.toString()) }
     var latencyLimitText by remember { mutableStateOf(latencyLimit.toString()) }
     var downloadTestCountText by remember { mutableStateOf(downloadTestCount.toString()) }
@@ -474,6 +476,17 @@ fun SettingsDialog(
                         it.toIntOrNull()?.let { count -> viewModel.updatePingCount(count) }
                     },
                     label = { Text("Ping 次数") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = maxConcurrentPingsText,
+                    onValueChange = {
+                        maxConcurrentPingsText = it
+                        it.toIntOrNull()?.let { count -> viewModel.updateMaxConcurrentPings(count) }
+                    },
+                    label = { Text("Ping 并发数") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -702,6 +715,7 @@ fun EnhancedSettingsDialog(
 ) {
     val testCount by viewModel.testCount.collectAsState()
     val pingCount by viewModel.pingCount.collectAsState()
+    val maxConcurrentPings by viewModel.maxConcurrentPings.collectAsState()
     val enableDownloadTest by viewModel.enableDownloadTest.collectAsState()
     val speedLimit by viewModel.speedLimit.collectAsState()
     val latencyLimit by viewModel.latencyLimit.collectAsState()
@@ -722,6 +736,7 @@ fun EnhancedSettingsDialog(
 
     var testCountText by remember { mutableStateOf(testCount.toString()) }
     var pingCountText by remember { mutableStateOf(pingCount.toString()) }
+    var maxConcurrentPingsText by remember { mutableStateOf(maxConcurrentPings.toString()) }
     var speedLimitText by remember { mutableStateOf(speedLimit.toString()) }
     var latencyLimitText by remember { mutableStateOf(latencyLimit.toString()) }
     var downloadTestCountText by remember { mutableStateOf(downloadTestCount.toString()) }
@@ -756,6 +771,17 @@ fun EnhancedSettingsDialog(
                         it.toIntOrNull()?.let(viewModel::updatePingCount)
                     },
                     label = { Text("Ping 次数") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = maxConcurrentPingsText,
+                    onValueChange = {
+                        maxConcurrentPingsText = it
+                        it.toIntOrNull()?.let(viewModel::updateMaxConcurrentPings)
+                    },
+                    label = { Text("Ping 并发数") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )

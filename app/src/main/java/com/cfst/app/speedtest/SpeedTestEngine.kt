@@ -5,6 +5,7 @@ import com.cfst.app.utils.IpRangeParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -13,13 +14,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * 测速引擎
- * 参考 Windows 版 cfst.exe 的测速逻辑优化
+ * Speed test engine.
  */
 class SpeedTestEngine {
 
     /**
-     * 测速配置
+     * Test configuration.
      */
     data class TestConfig(
         val testCount: Int = 100,
@@ -33,11 +33,12 @@ class SpeedTestEngine {
         val pingOnly: Boolean = false,
         val downloadTestCount: Int = 20,
         val pingFirst: Boolean = true,
-        val maxConcurrentDownloads: Int = 5
+        val maxConcurrentDownloads: Int = 5,
+        val maxConcurrentPings: Int = 8
     )
 
     /**
-     * 测速状态
+     * Test progress.
      */
     data class TestProgress(
         val current: Int,
@@ -71,51 +72,24 @@ class SpeedTestEngine {
         try {
             withContext(Dispatchers.IO) {
                 if (config.pingFirst) {
-                    val pingResults = mutableListOf<Pair<String, TcpPingTest.PingResult>>()
+                    val candidateIps = collectCandidateIps(
+                        ipRanges = ipRanges,
+                        random = random,
+                        testedIps = testedIps,
+                        targetCount = config.testCount,
+                        shouldStop = shouldStop
+                    )
 
-                    for (i in 0 until config.testCount) {
-                        if (shouldStop.get()) break
-                        if (consecutiveFailures >= maxConsecutiveFailures) break
+                    val pingResults = pingCandidates(
+                        candidateIps = candidateIps,
+                        config = config,
+                        onProgress = onProgress
+                    )
 
-                        var ip: String? = null
-                        var attempts = 0
-                        while (ip == null || testedIps.contains(ip)) {
-                            ip = IpRangeParser.getRandomIpFromRanges(ipRanges, random)
-                            attempts++
-                            if (attempts > 100) break
-                        }
-
-                        if (ip == null || testedIps.contains(ip)) continue
-                        testedIps.add(ip)
-
-                        onProgress(
-                            TestProgress(
-                                current = i + 1,
-                                total = config.testCount,
-                                currentIp = ip,
-                                status = "正在 Ping 测试..."
-                            )
-                        )
-
-                        val pingResult = TcpPingTest.ping(
-                            ip = ip,
-                            port = config.port,
-                            count = config.pingCount,
-                            timeoutMs = config.pingTimeout
-                        )
-
-                        if (pingResult.received == 0) {
-                            consecutiveFailures++
-                            continue
-                        }
-
-                        consecutiveFailures = 0
-
-                        if (config.latencyLimit > 0 && pingResult.avgLatency > config.latencyLimit) {
-                            continue
-                        }
-
-                        pingResults.add(ip to pingResult)
+                    consecutiveFailures = if (pingResults.isEmpty()) {
+                        candidateIps.size.coerceAtMost(maxConsecutiveFailures)
+                    } else {
+                        0
                     }
 
                     if (config.pingOnly) {
@@ -140,7 +114,7 @@ class SpeedTestEngine {
                         .take(config.downloadTestCount)
 
                     val totalDownloads = sortedPingResults.size
-                    val downloadSemaphore = Semaphore(config.maxConcurrentDownloads)
+                    val downloadSemaphore = Semaphore(config.maxConcurrentDownloads.coerceAtLeast(1))
                     val completedDownloads = AtomicInteger(0)
 
                     if (totalDownloads > 0) {
@@ -293,4 +267,89 @@ class SpeedTestEngine {
     }
 
     fun isRunning(): Boolean = isRunning.get()
+
+    private fun collectCandidateIps(
+        ipRanges: List<IpRangeParser.IpRange>,
+        random: Random,
+        testedIps: MutableSet<String>,
+        targetCount: Int,
+        shouldStop: AtomicBoolean
+    ): List<String> {
+        val candidateIps = mutableListOf<String>()
+        var duplicateAttempts = 0
+        val maxDuplicateAttempts = (targetCount * 20).coerceAtLeast(100)
+
+        while (
+            candidateIps.size < targetCount &&
+            !shouldStop.get() &&
+            duplicateAttempts < maxDuplicateAttempts
+        ) {
+            val ip = IpRangeParser.getRandomIpFromRanges(ipRanges, random)
+            if (ip == null) {
+                duplicateAttempts++
+                continue
+            }
+
+            if (!testedIps.add(ip)) {
+                duplicateAttempts++
+                continue
+            }
+
+            candidateIps.add(ip)
+        }
+
+        return candidateIps
+    }
+
+    private suspend fun pingCandidates(
+        candidateIps: List<String>,
+        config: TestConfig,
+        onProgress: (TestProgress) -> Unit
+    ): List<Pair<String, TcpPingTest.PingResult>> {
+        if (candidateIps.isEmpty()) {
+            return emptyList()
+        }
+
+        val pingSemaphore = Semaphore(config.maxConcurrentPings.coerceAtLeast(1))
+        val startedPings = AtomicInteger(0)
+
+        return coroutineScope {
+            candidateIps.map { ip ->
+                async {
+                    if (shouldStop.get()) return@async null
+
+                    pingSemaphore.withPermit {
+                        if (shouldStop.get()) return@withPermit null
+
+                        val started = startedPings.incrementAndGet()
+                        onProgress(
+                            TestProgress(
+                                current = started,
+                                total = candidateIps.size,
+                                currentIp = ip,
+                                status = "正在 Ping 测试..."
+                            )
+                        )
+
+                        val pingResult = TcpPingTest.ping(
+                            ip = ip,
+                            port = config.port,
+                            count = config.pingCount,
+                            timeoutMs = config.pingTimeout
+                        )
+
+                        if (pingResult.received == 0) {
+                            return@withPermit null
+                        }
+
+                        if (config.latencyLimit > 0 && pingResult.avgLatency > config.latencyLimit) {
+                            return@withPermit null
+                        }
+
+                        ip to pingResult
+                    }
+                }
+            }.awaitAll().filterNotNull()
+        }
+    }
 }

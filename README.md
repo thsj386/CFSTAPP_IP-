@@ -32,6 +32,25 @@
 - **Cloudflare 官方 IP 更新**: 支持直接从 Cloudflare 官方 `ips-v4` / `ips-v6` 地址获取最新 IP 段
 - **指定 IP 段测试**: 支持只对勾选的一个或多个 IPv4 / IPv6 IP 段进行测速
 
+## 更新记录
+
+### v1.0.1 - 2026-05-01
+
+本次更新主要围绕多线程 Ping 筛选策略进行调整，相关需求与讨论见 [#1](https://github.com/Hsia97/CFSTAPP/issues/1)。
+
+在实际测试中发现，这个问题并不只是“并发越高越快”这么简单，更像是“策略问题 + 安卓网络栈限制”的叠加结果。
+当 Ping 并发较高、而单个 IP 的探测次数过低时，Android 端更容易出现瞬时拥塞、连接超时或首轮误判，表现为初筛阶段可用 IP 数量明显偏少，进而影响后续下载测速结果。
+
+基于这一现象，本次更新做了以下调整：
+
+- 新增 `Ping 并发数` 设置项，支持在设置页面中手动调整并发值
+- 保留多线程 Ping 筛选能力，以提升整体测试速度
+- 将默认 `Ping 次数` 调整为 `3`
+- 将默认 `Ping 并发数` 调整为 `8`
+
+这组默认值是在多轮实际测试后得到的折中方案，目标是在“筛选速度”和“筛选稳定性”之间取得更合适的平衡。
+如果后续在不同网络环境或不同设备上发现更优组合，再继续调整默认值。
+
 ## 关键优化与问题修复
 
 ### 1. 为什么安卓端测速比电脑端慢？
@@ -149,7 +168,13 @@ CFSTAPP/
 
 ## 使用方法
 
-### 方法一：使用 Android Studio（推荐）
+### 方法一：下载已编译版本（推荐）
+
+1. 打开 [Releases](https://github.com/Hsia97/CFSTAPP/releases)
+2. 下载最新版本中提供的 APK 文件
+3. 将 APK 安装到 Android 设备后直接使用
+
+### 方法二：使用 Android Studio
 
 1. **安装 Android Studio**
    - 下载地址: https://developer.android.com/studio
@@ -170,7 +195,7 @@ CFSTAPP/
 5. **获取 APK**
    - 构建完成后，APK 位于: `app/build/outputs/apk/debug/app-debug.apk`
 
-### 方法二：使用命令行构建
+### 方法三：使用命令行构建
 
 **前置条件:**
 - 安装 JDK 17 或更高版本 (下载: https://adoptium.net/)
@@ -191,7 +216,7 @@ gradlew.bat assembleDebug
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-### 方法三：一键构建（Windows）
+### 方法四：一键构建（Windows）
 
 双击运行 `build-apk.bat` 脚本，会自动检查环境并构建 APK。
 
